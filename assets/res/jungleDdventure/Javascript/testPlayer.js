@@ -6,24 +6,48 @@ cc.Class({
         speed: cc.v2(0, 0),
         maxSpeed: cc.v2(2000, 2000),
         gravity: -1000,
-        drag: 1000,
         direction: 0,
-        jumpSpeed: 300
+        jumpSpeed: 300,
+
+        backgroundAudio: {
+            default: null,
+            type: cc.AudioClip
+        },
+
+        jumpAudio: {
+            default: null,
+            type: cc.AudioClip
+        },
+
+        failAudio: {
+            default: null,
+            type: cc.AudioClip
+        },
     },
 
-    // use this for initialization
     onLoad: function () {
-        //add keyboard input listener to call turnLeft and turnRight
-        cc.systemEvent.on(cc.SystemEvent.EventType.KEY_DOWN, this.onKeyPressed, this);
-        cc.systemEvent.on(cc.SystemEvent.EventType.KEY_UP, this.onKeyReleased, this);
+        // 跳跃的状态
+        this.jumping = false;
+        // 前进方向 东西 南北
+        this.eastward = false;
+        this.westward = false;
+        this.southward = true;
+        this.northward = false;
 
-        this.collisionX = 0;
-        this.collisionY = 0;
+        // 绑定 跳跃 事件
+        this.node.parent.on('touchstart', this.jump, this);
+    },
 
-        this.prePosition = cc.v2();
-        this.preStep = cc.v2();
+    update: function (dt) {
+        if (this.southward) {
+            this.speed.y += this.gravity * dt;
+            // 速度限制处理
+            if (Math.abs(this.speed.y) > this.maxSpeed.y) {
+                this.speed.y = this.speed.y > 0 ? this.maxSpeed.y : -this.maxSpeed.y;
+            }
+        }
 
-        this.touchingNumber = 0;
+        this.node.y += this.speed.y * dt;
     },
 
     onEnable: function () {
@@ -35,180 +59,69 @@ cc.Class({
         cc.director.getCollisionManager().enabled = false;
         cc.director.getCollisionManager().enabledDebugDraw = false;
     },
-    
-    onKeyPressed: function (event) {
-        let keyCode = event.keyCode;
-        switch(keyCode) {
-            case cc.macro.KEY.a:
-            case cc.macro.KEY.left:
-                this.direction = -1;
-                break;
-            case cc.macro.KEY.d:
-            case cc.macro.KEY.right:
-                this.direction = 1;
-                break;
-            case cc.macro.KEY.w:
-            case cc.macro.KEY.up:
-                console.log('跳跃')
-                if (!this.jumping) {
-                    this.collisionY = -1;
-                    // this.direction = 0;
-                    this.jumping = true;
-                    this.speed.y = this.jumpSpeed;    
-                }
-                break;
-        }
-    },
-    
-    onKeyReleased: function (event) {
-        let keyCode = event.keyCode;
-        switch(keyCode) {
-            case cc.macro.KEY.a:
-            case cc.macro.KEY.left:
-            case cc.macro.KEY.d:
-            case cc.macro.KEY.right:
-                this.direction = 0;
-                break;
-        }
-    },
-    
-    onCollisionEnter: function (other, self) {
-        this.node.color = cc.Color.RED;
 
-        this.touchingNumber ++;
-        // return;
-        // 1st step 
-        // get pre aabb, go back before collision
+    // 跳跃
+    jump() {
+        if (!this.jumping) {
+            console.log('jump')
+            cc.audioEngine.play(this.jumpAudio, false, 1);
+            this.jumping = true;
+            this.speed.y = this.jumpSpeed;
+        }
+    },
+
+    // 游戏结束
+    gameOver() {
+        this.node.dispatchEvent(new cc.Event.EventCustom('gameOver', true));
+
+        var playerAnim = this.getComponent(cc.Animation);
+        playerAnim.play('stay')
+
+        setTimeout(function () {
+            this.node.getComponent(cc.BoxCollider).enabled = false;
+            cc.audioEngine.play(this.failAudio, false, .2);
+        }.bind(this), 300);
+    },
+
+    // 碰撞 生命周期
+    onCollisionEnter: function (other, self) {
+        console.log('碰撞进入')
+
+        if (other.name == 'tree<CircleCollider>') {
+            this.gameOver();
+        }
+        // 1.get pre aabb, go back before collision
         var otherAabb = other.world.aabb;
         var otherPreAabb = other.world.preAabb.clone();
         var selfAabb = self.world.aabb;
         var selfPreAabb = self.world.preAabb.clone();
 
-        // 2nd step
-        // forward x-axis, check whether collision on x-axis
-        selfPreAabb.x = selfAabb.x;
-        otherPreAabb.x = otherAabb.x;
-
-        if (cc.Intersection.rectRect(selfPreAabb, otherPreAabb)) {
-            if (this.speed.x < 0 && (selfPreAabb.xMax > otherPreAabb.xMax)) {
-                this.node.x = otherPreAabb.xMax - this.node.parent.x;
-                this.collisionX = -1;
-            }
-            else if (this.speed.x > 0 && (selfPreAabb.xMin < otherPreAabb.xMin)) {
-                this.node.x = otherPreAabb.xMin - selfPreAabb.width - this.node.parent.x;
-                this.collisionX = 1;
-            }
-
-            this.speed.x = 0;
-            other.touchingX = true;
-            return;
-        }
-
-        // 3rd step
-        // forward y-axis, check whether collision on y-axis
+        // 3.检测纵向碰撞
         selfPreAabb.y = selfAabb.y;
         otherPreAabb.y = otherAabb.y;
 
         if (cc.Intersection.rectRect(selfPreAabb, otherPreAabb)) {
-
-            console.log('碰撞发生')
-            console.log(selfPreAabb)
-            console.log(otherPreAabb)
-
-            // if (this.speed.y < 0 && (selfPreAabb.yMax > otherPreAabb.yMax)) {
-            //     this.node.y = otherPreAabb.yMax - this.node.parent.y;
-            //     this.jumping = false;
-            //     this.collisionY = -1;
-            // }
-            // else if (this.speed.y > 0 && (selfPreAabb.yMin < otherPreAabb.yMin)) {
-            //     this.node.y = otherPreAabb.yMin - selfPreAabb.height - this.node.parent.y;
-            //     this.collisionY = 1;
-            // }
-            
-            this.jumping = false;
-            this.collisionY = 1;
-            this.speed.y = 0;
-            //other.touchingY = true;
-        }    
-        
-    },
-    
-    onCollisionStay: function (other, self) {
-        if (this.collisionY === -1) {
-            if (other.node.group === 'Platform') {
-                var motion = other.node.getComponent('PlatformMotion');
-                if (motion) {
-                    this.node.x += motion._movedDiff;
-                }
+            console.log('纵向碰撞')
+            if (this.speed.y < 0 && (selfPreAabb.yMax > otherPreAabb.yMax)) {
+                this.jumping = false;
+                this.southward = false;
             }
-
-            // this.node.y = other.world.aabb.yMax;
-
-            // var offset = cc.v2(other.world.aabb.x - other.world.preAabb.x, 0);
-            
-            // var temp = cc.affineTransformClone(self.world.transform);
-            // temp.tx = temp.ty = 0;
-            
-            // offset = cc.pointApplyAffineTransform(offset, temp);
-            // this.node.x += offset.x;
+            this.speed.y = 0;
+            other.touchingY = true;
         }
     },
-    
-    onCollisionExit: function (other) {
-        this.touchingNumber --;
-        if (this.touchingNumber === 0) {
-            this.node.color = cc.Color.WHITE;
-        }
 
-        if (other.touchingX) {
-            this.collisionX = 0;
-            other.touchingX = false;
-        }
-        else if (other.touchingY) {
+    onCollisionStay: function (other, self) {
+
+    },
+
+    onCollisionExit: function (other) {
+        console.log('碰撞退入')
+        // 纵向重置
+        if (other.touchingY) {
             other.touchingY = false;
-            this.collisionY = 0;
+            this.southward = true;
             this.jumping = true;
         }
-    },
-    
-    update: function (dt) {
-        if (this.collisionY === 0) {
-            this.speed.y += this.gravity * dt;
-            if (Math.abs(this.speed.y) > this.maxSpeed.y) {
-                this.speed.y = this.speed.y > 0 ? this.maxSpeed.y : -this.maxSpeed.y;
-            }
-        }
-
-        if (this.direction === 0) {
-
-            if (this.speed.x > 0) {
-                this.speed.x -= this.drag * dt;
-                if (this.speed.x <= 0) this.speed.x = 0;
-            }
-            else if (this.speed.x < 0) {
-                this.speed.x += this.drag * dt;
-                if (this.speed.x >= 0) this.speed.x = 0;
-            }
-        }
-        else {
-            this.speed.x += (this.direction > 0 ? 1 : -1) * this.drag * dt;
-            if (Math.abs(this.speed.x) > this.maxSpeed.x) {
-                this.speed.x = this.speed.x > 0 ? this.maxSpeed.x : -this.maxSpeed.x;
-            }
-        }
-
-        if (this.speed.x * this.collisionX > 0) {
-            this.speed.x = 0;
-            return;
-        }
-        
-        this.prePosition.x = this.node.x;
-        this.prePosition.y = this.node.y;
-
-        this.preStep.x = this.speed.x * dt;
-        this.preStep.y = this.speed.y * dt;
-        
-        this.node.x += this.speed.x * dt;
-        this.node.y += this.speed.y * dt;
     },
 });

@@ -28,7 +28,7 @@ cc.Class({
             event.stopPropagation();
             this.monster.pauseAllActions();
         }.bind(this));
-        
+    
         this.score = 0;
         this.addSpawn();
     },
