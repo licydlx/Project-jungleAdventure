@@ -1,3 +1,4 @@
+const {postMessage} = require('JA-common');
 
 cc.Class({
     extends: cc.Component,
@@ -8,11 +9,6 @@ cc.Class({
         gravity: -1000,
         direction: 0,
         jumpSpeed: 300,
-
-        backgroundAudio: {
-            default: null,
-            type: cc.AudioClip
-        },
 
         jumpAudio: {
             default: null,
@@ -26,6 +22,27 @@ cc.Class({
     },
 
     onLoad: function () {
+        this.jungleAdventure = function (e) {
+            if (window === window.parent) return;
+            if (typeof e.data !== 'string') return;
+            var data = JSON.parse(e.data);
+            if (data) {
+                switch (data.method) {
+                    case "onFileMessage":
+                    
+                        if (data.handleData && data.handleData.type == 'jungleAdventure-init') {
+                            this.node.dispatchEvent(new cc.Event.EventCustom('init', true));
+                        }
+                    
+                        if (data.handleData && data.handleData.type == 'jungleAdventure-jump') {
+                            this.jump('jumpMessage');
+                        }
+                }
+            }
+        }.bind(this);
+
+        window.addEventListener("message", this.jungleAdventure, false);
+
         // 跳跃的状态
         this.jumping = false;
         // 前进方向 东西 南北
@@ -52,22 +69,32 @@ cc.Class({
 
     onEnable: function () {
         cc.director.getCollisionManager().enabled = true;
-        cc.director.getCollisionManager().enabledDebugDraw = true;
+        // cc.director.getCollisionManager().enabledDebugDraw = true;
     },
 
     onDisable: function () {
         cc.director.getCollisionManager().enabled = false;
-        cc.director.getCollisionManager().enabledDebugDraw = false;
+        // cc.director.getCollisionManager().enabledDebugDraw = false;
+    },
+
+    onDestroy() {
+        console.log('onDestroy - jungleAdventure');
+        window.removeEventListener('message', this.jungleAdventure, false);
     },
 
     // 跳跃
-    jump() {
+    jump(jumpMessage) {
         if (!this.jumping) {
-            console.log('jump')
             cc.audioEngine.play(this.jumpAudio, false, 1);
             this.jumping = true;
             this.speed.y = this.jumpSpeed;
+
+            if(jumpMessage !== 'jumpMessage'){
+                postMessage({'type':'jungleAdventure-jump'});
+            }
         }
+        
+        
     },
 
     // 游戏结束
@@ -76,7 +103,8 @@ cc.Class({
 
         var playerAnim = this.getComponent(cc.Animation);
         playerAnim.play('stay')
-
+        cc.audioEngine.stopAll();
+        
         setTimeout(function () {
             this.node.getComponent(cc.BoxCollider).enabled = false;
             cc.audioEngine.play(this.failAudio, false, .2);

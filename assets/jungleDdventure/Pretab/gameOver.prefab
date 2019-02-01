@@ -18,7 +18,7 @@
     "_parent": null,
     "_children": [],
     "_active": true,
-    "_level": 3,
+    "_level": 1,
     "_components": [
       {
         "__id__": 2
@@ -48,13 +48,13 @@
     "_position": {
       "__type__": "cc.Vec3",
       "x": 0,
-      "y": -57,
+      "y": -54,
       "z": 0
     },
     "_scale": {
       "__type__": "cc.Vec3",
-      "x": 0.4,
-      "y": 0.4,
+      "x": 0.45,
+      "y": 0.45,
       "z": 1
     },
     "_quat": {
@@ -109,7 +109,7 @@
       "__id__": 1
     },
     "asset": {
-      "__id__": 0
+      "__uuid__": "1a865ef5-d3ad-4741-a2aa-83365ce8c6b4"
     },
     "fileId": "bc+7Db5XdH67IoMfDY+vlg",
     "sync": false
